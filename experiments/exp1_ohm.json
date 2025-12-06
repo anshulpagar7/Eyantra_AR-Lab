@@ -1,0 +1,48 @@
+{
+  "id": 1,
+  "name": "Ohm's Law - Single Resistor",
+  "type": "series",
+
+  "source": {
+    "name": "V1",
+    "voltage": 5.0
+  },
+
+  "resistors": [
+    {
+      "name": "R1",
+      "resistance": 1000.0
+    }
+  ],
+
+  "leds": [],
+
+  "steps": [
+    {
+      "type": "show_component",
+      "target": "V1",
+      "text": "Step 1: Place the 5V voltage source."
+    },
+    {
+      "type": "show_component",
+      "target": "R1",
+      "text": "Step 2: Place the 1kΩ resistor in series."
+    },
+    {
+      "type": "connect",
+      "from": "V1.pos",
+      "to": "R1.left",
+      "text": "Connect the positive terminal of V1 to the resistor."
+    },
+    {
+      "type": "connect",
+      "from": "R1.right",
+      "to": "V1.neg",
+      "text": "Complete the circuit by connecting resistor to negative terminal."
+    },
+    {
+      "type": "explain",
+      "text": "This forms a simple series circuit. Let's compute the current using Ohm's law."
+    }
+  ]
+}
