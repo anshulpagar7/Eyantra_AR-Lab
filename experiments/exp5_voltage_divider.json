@@ -1,0 +1,67 @@
+{
+  "id": 5,
+  "name": "Voltage Divider - Sensor Input Concept",
+  "type": "series",
+
+  "source": {
+    "name": "V1",
+    "voltage": 9.0
+  },
+
+  "resistors": [
+    {
+      "name": "R1",
+      "resistance": 1000.0
+    },
+    {
+      "name": "R2",
+      "resistance": 2000.0
+    }
+  ],
+
+  "leds": [],
+
+  "steps": [
+    {
+      "type": "show_component",
+      "target": "V1",
+      "text": "Step 1: Place the 9V voltage source."
+    },
+    {
+      "type": "show_component",
+      "target": "R1",
+      "text": "Step 2: Add the top resistor R1 (1kΩ)."
+    },
+    {
+      "type": "show_component",
+      "target": "R2",
+      "text": "Step 3: Add the bottom resistor R2 (2kΩ)."
+    },
+    {
+      "type": "connect",
+      "from": "V1.pos",
+      "to": "R1.left",
+      "text": "Connect the supply positive to the top of R1."
+    },
+    {
+      "type": "connect",
+      "from": "R1.right",
+      "to": "R2.left",
+      "text": "Connect R1 to R2."
+    },
+    {
+      "type": "connect",
+      "from": "R2.right",
+      "to": "V1.neg",
+      "text": "Connect the bottom of R2 back to ground."
+    },
+    {
+      "type": "explain",
+      "text": "This forms a voltage divider. The middle node gives Vout = Vin × (R2 / (R1 + R2))."
+    },
+    {
+      "type": "explain",
+      "text": "Voltage dividers are used in sensors (LDR, thermistors) to produce a measurable voltage."
+    }
+  ]
+}

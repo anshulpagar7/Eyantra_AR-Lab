@@ -1,0 +1,69 @@
+{
+  "id": 3,
+  "name": "Parallel Resistors - Current Division",
+  "type": "parallel",
+
+  "source": {
+    "name": "V1",
+    "voltage": 9.0
+  },
+
+  "resistors": [
+    {
+      "name": "R1",
+      "resistance": 1000.0
+    },
+    {
+      "name": "R2",
+      "resistance": 2000.0
+    }
+  ],
+
+  "leds": [],
+
+  "steps": [
+    {
+      "type": "show_component",
+      "target": "V1",
+      "text": "Step 1: Place the 9V power supply."
+    },
+    {
+      "type": "show_component",
+      "target": "R1",
+      "text": "Step 2: Add a 1kΩ resistor (Branch 1)."
+    },
+    {
+      "type": "show_component",
+      "target": "R2",
+      "text": "Step 3: Add a 2kΩ resistor (Branch 2)."
+    },
+    {
+      "type": "connect",
+      "from": "V1.pos",
+      "to": "R1.left",
+      "text": "Connect the battery positive to R1."
+    },
+    {
+      "type": "connect",
+      "from": "V1.pos",
+      "to": "R2.left",
+      "text": "Also connect the battery positive to R2 (parallel branches)."
+    },
+    {
+      "type": "connect",
+      "from": "R1.right",
+      "to": "V1.neg",
+      "text": "Connect R1 back to the negative terminal."
+    },
+    {
+      "type": "connect",
+      "from": "R2.right",
+      "to": "V1.neg",
+      "text": "Connect R2 back to the negative terminal."
+    },
+    {
+      "type": "explain",
+      "text": "In parallel, the voltage across each resistor is the same. Total current splits: lower resistance branch gets higher current."
+    }
+  ]
+}

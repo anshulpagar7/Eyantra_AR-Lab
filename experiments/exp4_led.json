@@ -1,0 +1,65 @@
+{
+  "id": 4,
+  "name": "LED with Current-Limiting Resistor",
+  "type": "series",
+
+  "source": {
+    "name": "V1",
+    "voltage": 5.0
+  },
+
+  "resistors": [
+    {
+      "name": "R1",
+      "resistance": 220.0
+    }
+  ],
+
+  "leds": [
+    {
+      "name": "LED1",
+      "forward_voltage": 2.0,
+      "max_current": 0.02
+    }
+  ],
+
+  "steps": [
+    {
+      "type": "show_component",
+      "target": "V1",
+      "text": "Step 1: Place a 5V supply."
+    },
+    {
+      "type": "show_component",
+      "target": "LED1",
+      "text": "Step 2: Add an LED. A red LED typically has a 2V forward drop."
+    },
+    {
+      "type": "show_component",
+      "target": "R1",
+      "text": "Step 3: Add a 220Ω resistor to limit the current."
+    },
+    {
+      "type": "connect",
+      "from": "V1.pos",
+      "to": "R1.left",
+      "text": "Connect the supply to the resistor."
+    },
+    {
+      "type": "connect",
+      "from": "R1.right",
+      "to": "LED1.anode",
+      "text": "Connect resistor to LED anode (positive side)."
+    },
+    {
+      "type": "connect",
+      "from": "LED1.cathode",
+      "to": "V1.neg",
+      "text": "Connect LED cathode back to supply negative."
+    },
+    {
+      "type": "explain",
+      "text": "The LED lights up! Current = (5V - 2V) / 220Ω ≈ 13.6mA, which is safe."
+    }
+  ]
+}
