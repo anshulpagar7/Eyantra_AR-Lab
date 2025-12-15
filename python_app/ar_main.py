@@ -62,7 +62,7 @@ def main():
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
     # 2. Prepare ArUco detection
-    aruco_dict = aruco.getPredefinedDictionary(ARUCO_DICT)
+    aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_5X5_100)
     params = aruco.DetectorParameters()
     detector = aruco.ArucoDetector(aruco_dict, params)
 
@@ -79,7 +79,8 @@ def main():
         frame = cv2.flip(frame, 1)
 
         # 3. Detect markers
-        corners, ids, _ = detector.detectMarkers(frame)
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        corners, ids, _ = aruco.detectMarkers(gray, aruco_dict)
 
         status_msg = "No marker detected"
 
