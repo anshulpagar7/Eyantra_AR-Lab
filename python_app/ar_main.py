@@ -11,6 +11,7 @@ if ROOT_DIR not in sys.path:
 import cv2
 import cv2.aruco as aruco
 from pathlib import Path
+from aruco_config import ARUCO_DICT
 
 from circuit_engine.loader import load_series_circuit_from_json
 from circuit_engine.solver import solve_series_circuit
@@ -61,7 +62,7 @@ def main():
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
     # 2. Prepare ArUco detection
-    aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_4X4_50)
+    aruco_dict = aruco.getPredefinedDictionary(ARUCO_DICT)
     params = aruco.DetectorParameters()
     detector = aruco.ArucoDetector(aruco_dict, params)
 
