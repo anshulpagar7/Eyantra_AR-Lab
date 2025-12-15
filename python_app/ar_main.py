@@ -2,7 +2,6 @@ import sys
 import os
 
 # ---------- FIX FOR IMPORT PATH ----------
-# Make project root discoverable so "circuit_engine" can be imported
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT_DIR not in sys.path:
     sys.path.append(ROOT_DIR)
@@ -11,7 +10,6 @@ if ROOT_DIR not in sys.path:
 import cv2
 import cv2.aruco as aruco
 from pathlib import Path
-from aruco_config import ARUCO_DICT
 
 from circuit_engine.loader import load_series_circuit_from_json
 from circuit_engine.solver import solve_series_circuit
@@ -38,69 +36,63 @@ def load_experiment_json(exp_id: int):
     if not json_path.exists():
         return None, None, f"File missing: {json_path}"
 
-    # Load circuit + steps
     circuit, steps = load_series_circuit_from_json(json_path)
 
-    # Solve only for supported series-type circuits for now
     if exp_id in [0, 1, 3, 4]:
         result = solve_series_circuit(circuit)
     else:
-        result = {"info": "This circuit type is not solved yet (visual only later)"}
+        result = {"info": "This circuit type is not solved yet (visual only)"}
 
     return circuit, result, f"Loaded: {file_map[exp_id]}"
 
 
 def main():
-    # 1. Open webcam
+    # ---------------- Camera setup ----------------
     cap = cv2.VideoCapture(0)
     if not cap.isOpened():
-        print("Error: Could not open webcam.")
+        print("❌ Could not open webcam")
         return
 
-    # Optional: set HD resolution for better detection
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
-    # 2. Prepare ArUco detection
+    # ---------------- ArUco setup (STABLE) ----------------
     aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_5X5_100)
-    params = aruco.DetectorParameters()
-    detector = aruco.ArucoDetector(aruco_dict, params)
 
-    experiment_cache = {}  # Cache loaded experiments for each marker ID
+    experiment_cache = {}
 
-    print("Press 'q' to quit.")
+    print("✅ eYantra AR started")
+    print("Show a marker. Press 'q' to quit.")
 
     while True:
         ret, frame = cap.read()
         if not ret:
             break
 
-        # Flip horizontally so it looks natural and fixes mirror issues
-        frame = cv2.flip(frame, 1)
-
-        # 3. Detect markers
+        # =================================================
+        # 1️⃣ ARUCO DETECTION ON RAW FRAME (NO FLIP HERE)
+        # =================================================
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         corners, ids, _ = aruco.detectMarkers(gray, aruco_dict)
 
         status_msg = "No marker detected"
 
         if ids is not None and len(ids) > 0:
-            # For now, just use the first detected marker
-            marker_id = int(ids[0][0])
             aruco.drawDetectedMarkers(frame, corners, ids)
 
-            # Load experiment once per marker and cache it
+            marker_id = int(ids[0][0])
+            print("Detected marker:", marker_id)
+
             if marker_id not in experiment_cache:
                 circuit, result, status_msg = load_experiment_json(marker_id)
                 experiment_cache[marker_id] = (circuit, result, status_msg)
 
             circuit, result, status_msg = experiment_cache[marker_id]
 
-            # 4. Display calculation results (for series circuits)
-            y = 60
+            # ---------------- Display results ----------------
+            y = 70
             if isinstance(result, dict):
-                # Show current if available
-                current = result.get("current", None)
+                current = result.get("current")
                 if current is not None:
                     cv2.putText(
                         frame,
@@ -113,7 +105,6 @@ def main():
                     )
                     y += 30
 
-                # Show voltage drops if available
                 vdrops = result.get("voltage_drops", {})
                 for comp, drop in vdrops.items():
                     cv2.putText(
@@ -127,7 +118,7 @@ def main():
                     )
                     y += 30
 
-        # 5. Status message (what experiment / error)
+        # ---------------- Status line ----------------
         cv2.putText(
             frame,
             status_msg,
@@ -138,9 +129,12 @@ def main():
             2,
         )
 
-        cv2.imshow("eYantra AR - Experiment Loader", frame)
+        # =================================================
+        # 2️⃣ FLIP ONLY FOR DISPLAY
+        # =================================================
+        frame_display = cv2.flip(frame, 1)
+        cv2.imshow("eYantra AR - Experiment Visualizer", frame_display)
 
-        # 6. Quit on 'q'
         if cv2.waitKey(1) & 0xFF == ord("q"):
             break
 
