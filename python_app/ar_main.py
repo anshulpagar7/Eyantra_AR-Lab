@@ -56,7 +56,7 @@ def main():
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
-    # ---------------- ArUco setup (STABLE) ----------------
+    # ---------------- ArUco setup (LOCKED & STABLE) ----------------
     aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_5X5_100)
 
     experiment_cache = {}
@@ -76,6 +76,7 @@ def main():
         corners, ids, _ = aruco.detectMarkers(gray, aruco_dict)
 
         status_msg = "No marker detected"
+        result = {}
 
         if ids is not None and len(ids) > 0:
             aruco.drawDetectedMarkers(frame, corners, ids)
@@ -89,38 +90,16 @@ def main():
 
             circuit, result, status_msg = experiment_cache[marker_id]
 
-            # ---------------- Display results ----------------
-            y = 70
-            if isinstance(result, dict):
-                current = result.get("current")
-                if current is not None:
-                    cv2.putText(
-                        frame,
-                        f"I = {current:.4f} A",
-                        (10, y),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        0.6,
-                        (0, 255, 255),
-                        2,
-                    )
-                    y += 30
+        # =================================================
+        # 2️⃣ FLIP FRAME FOR DISPLAY
+        # =================================================
+        frame_display = cv2.flip(frame, 1)
 
-                vdrops = result.get("voltage_drops", {})
-                for comp, drop in vdrops.items():
-                    cv2.putText(
-                        frame,
-                        f"{comp}: {drop:.2f} V",
-                        (10, y),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        0.6,
-                        (255, 200, 0),
-                        2,
-                    )
-                    y += 30
-
-        # ---------------- Status line ----------------
+        # =================================================
+        # 3️⃣ DRAW UI (TEXT) ON DISPLAY FRAME
+        # =================================================
         cv2.putText(
-            frame,
+            frame_display,
             status_msg,
             (10, 30),
             cv2.FONT_HERSHEY_SIMPLEX,
@@ -129,10 +108,37 @@ def main():
             2,
         )
 
+        y = 70
+        if isinstance(result, dict):
+            current = result.get("current")
+            if current is not None:
+                cv2.putText(
+                    frame_display,
+                    f"I = {current:.4f} A",
+                    (10, y),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.6,
+                    (0, 255, 255),
+                    2,
+                )
+                y += 30
+
+            vdrops = result.get("voltage_drops", {})
+            for comp, drop in vdrops.items():
+                cv2.putText(
+                    frame_display,
+                    f"{comp}: {drop:.2f} V",
+                    (10, y),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.6,
+                    (255, 200, 0),
+                    2,
+                )
+                y += 30
+
         # =================================================
-        # 2️⃣ FLIP ONLY FOR DISPLAY
+        # 4️⃣ SHOW FINAL FRAME
         # =================================================
-        frame_display = cv2.flip(frame, 1)
         cv2.imshow("eYantra AR - Experiment Visualizer", frame_display)
 
         if cv2.waitKey(1) & 0xFF == ord("q"):
