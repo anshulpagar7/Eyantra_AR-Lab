@@ -1,6 +1,5 @@
 import sys
 import os
-import re
 from pathlib import Path
 
 # ---------- FIX FOR IMPORT PATH ----------
@@ -31,11 +30,6 @@ COMPONENT_IMAGES = {
 
 
 # ================= HELPERS =================
-def extract_components(step_text: str):
-    pattern = r"(V\d+|R\d+|LED\d+|C\d+|D\d+|Q\d+|GND)"
-    return re.findall(pattern, step_text.upper())
-
-
 def get_component_type(comp_id: str):
     comp_id = comp_id.upper()
     if comp_id.startswith("LED"):
@@ -48,14 +42,32 @@ def get_component_type(comp_id: str):
         return "D"
     if comp_id.startswith("C"):
         return "C"
-    return comp_id[0]  # V, R
+    return comp_id[0]
 
 
-def auto_layout_position(index):
-    start_x = 260
-    gap = 170
-    y = 360
-    return start_x + index * gap, y
+def base_component(terminal: str):
+    return terminal.split(".")[0]
+
+
+# -------- BRANCH-AWARE AUTO LAYOUT --------
+def auto_layout_position(comp, visible_components, connections):
+    base_x = 260
+    gap_x = 180
+    base_y = 360
+    gap_y = 140
+
+    idx = visible_components.index(comp)
+    x = base_x + idx * gap_x
+    y = base_y
+
+    # Detect parallel branches from V1
+    branches = [b for a, b in connections if a == "V1"]
+
+    if comp in branches:
+        branch_idx = branches.index(comp)
+        y = base_y - gap_y if branch_idx == 0 else base_y + gap_y
+
+    return x, y
 
 
 def remove_checkerboard(img):
@@ -63,13 +75,11 @@ def remove_checkerboard(img):
         return img
 
     b, g, r, a = cv2.split(img)
-
     mask = ~(
         ((r > 180) & (r < 255)) &
         ((g > 180) & (g < 255)) &
         ((b > 180) & (b < 255))
     )
-
     a = mask.astype("uint8") * 255
     return cv2.merge([b, g, r, a])
 
@@ -105,36 +115,31 @@ def load_experiment_json(exp_id: int):
         7: "exp8_threshold.json",
     }
 
-    if exp_id not in file_map:
-        return None, None, None, f"No experiment mapped to ID {exp_id}"
+    path = Path("experiments") / file_map.get(exp_id, "")
+    if not path.exists():
+        return None, None, None, "No experiment mapped"
 
-    json_path = Path(f"experiments/{file_map[exp_id]}")
-    circuit, steps = load_series_circuit_from_json(json_path)
-
+    circuit, steps = load_series_circuit_from_json(path)
     result = solve_series_circuit(circuit) if exp_id in [0, 1, 3, 4] else {}
-    return circuit, steps, result, f"Loaded: {file_map[exp_id]}"
+    return circuit, steps, result, f"Loaded: {path.name}"
 
 
 # ================= MAIN =================
 def main():
     cap = cv2.VideoCapture(0)
-    if not cap.isOpened():
-        print("❌ Webcam error")
-        return
-
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
     aruco_dict = aruco.getPredefinedDictionary(aruco.DICT_5X5_100)
 
-    current_marker_id = None
+    current_marker = None
     current_step = 0
     steps = []
     status = "No marker detected"
 
     visible_components = []
     component_images = {}
-    wires = []
+    connections = []
 
     print("✅ eYantra AR running | N: next | R: reset | Q: quit")
 
@@ -150,17 +155,17 @@ def main():
             marker_id = int(ids[0][0])
             aruco.drawDetectedMarkers(frame, corners, ids)
 
-            if marker_id != current_marker_id:
+            if marker_id != current_marker:
                 _, steps, _, status = load_experiment_json(marker_id)
-                current_marker_id = marker_id
+                current_marker = marker_id
                 current_step = 0
                 visible_components.clear()
                 component_images.clear()
-                wires.clear()
+                connections.clear()
 
         frame = cv2.flip(frame, 1)
 
-        # UI
+        # UI text
         cv2.putText(frame, status, (10, 30),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
 
@@ -172,14 +177,15 @@ def main():
                         (10, 110), cv2.FONT_HERSHEY_SIMPLEX, 0.65, (0, 255, 255), 2)
 
         # Draw wires
-        for a, b in wires:
-            x1, y1 = auto_layout_position(a)
-            x2, y2 = auto_layout_position(b)
-            cv2.line(frame, (x1, y1), (x2, y2), (0, 255, 0), 4)
+        for a, b in connections:
+            if a in visible_components and b in visible_components:
+                x1, y1 = auto_layout_position(a, visible_components, connections)
+                x2, y2 = auto_layout_position(b, visible_components, connections)
+                cv2.line(frame, (x1, y1), (x2, y2), (0, 255, 0), 4)
 
         # Draw components
-        for i, comp in enumerate(visible_components):
-            x, y = auto_layout_position(i)
+        for comp in visible_components:
+            x, y = auto_layout_position(comp, visible_components, connections)
             overlay_image(frame, component_images.get(comp), x, y)
             cv2.putText(frame, comp, (x - 25, y + 75),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
@@ -187,11 +193,14 @@ def main():
         cv2.imshow("eYantra AR Circuit Builder", frame)
 
         key = cv2.waitKey(1) & 0xFF
+
         if key == ord("n") and steps:
             if current_step < len(steps) - 1:
                 current_step += 1
-                comps = extract_components(steps[current_step]["text"])
-                for comp in comps:
+                step = steps[current_step]
+
+                if step["type"] == "show_component":
+                    comp = step["target"]
                     if comp not in visible_components:
                         img_path = COMPONENT_IMAGES.get(get_component_type(comp))
                         img = None
@@ -201,15 +210,18 @@ def main():
                             img = cv2.resize(img, (120, 120))
                         component_images[comp] = img
                         visible_components.append(comp)
-                        if len(visible_components) > 1:
-                            wires.append((len(visible_components) - 2,
-                                          len(visible_components) - 1))
+
+                elif step["type"] == "connect":
+                    a = base_component(step["from"])
+                    b = base_component(step["to"])
+                    if a in visible_components and b in visible_components:
+                        connections.append((a, b))
 
         elif key == ord("r"):
             current_step = 0
             visible_components.clear()
             component_images.clear()
-            wires.clear()
+            connections.clear()
 
         elif key == ord("q"):
             break
