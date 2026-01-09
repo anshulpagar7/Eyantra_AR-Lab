@@ -26,6 +26,7 @@ COMPONENT_IMAGES = {
     "D": ASSETS_DIR / "diode.png",
     "Q": ASSETS_DIR / "transistor.png",
     "GND": ASSETS_DIR / "ground.png",
+    "GPIO": ASSETS_DIR / "gpio_block.png"
 }
 
 
@@ -105,8 +106,8 @@ def overlay_image(frame, img, x, y):
 
 def load_experiment_json(exp_id: int):
     file_map = {
-        0: "exp1_ohm.json",
-        1: "exp2_series.json",
+        0: "exp1_ohms_law_measurement.json",
+        1: "exp2_voltage_divider_load.json",
         2: "exp3_parallel.json",
         3: "exp4_led.json",
         4: "exp5_voltage_divider.json",
