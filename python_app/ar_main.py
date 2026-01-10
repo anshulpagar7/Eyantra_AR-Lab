@@ -47,14 +47,20 @@ def base_component(terminal: str):
     return terminal.split(".")[0]
 
 
-def remove_checkerboard(img):
+def clean_transparency(img):
+    """
+    Force-clean transparency using alpha channel.
+    Any pixel with alpha < 250 becomes fully transparent.
+    """
     if img is None or img.shape[2] != 4:
         return img
+
     b, g, r, a = cv2.split(img)
-    mask = ~(
-        ((r > 200) & (g > 200) & (b > 200))
-    )
-    a = mask.astype("uint8") * 255
+
+    # Hard threshold alpha
+    a[a < 250] = 0
+    a[a >= 250] = 255
+
     return cv2.merge([b, g, r, a])
 
 
@@ -209,7 +215,7 @@ def main():
                         img_path = COMPONENT_IMAGES.get(get_component_type(comp))
                         if img_path and img_path.exists():
                             img = cv2.imread(str(img_path), cv2.IMREAD_UNCHANGED)
-                            img = remove_checkerboard(img)
+                            img = clean_transparency(img)
                             img = cv2.resize(img, (120, 120))
                         component_images[comp] = img
                         visible_components.append(comp)
