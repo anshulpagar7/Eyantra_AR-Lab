@@ -14,7 +14,6 @@ import cv2
 import cv2.aruco as aruco
 
 from circuit_engine.loader import load_series_circuit_from_json
-from circuit_engine.solver import solve_series_circuit
 
 
 # ================= ASSETS =================
@@ -41,35 +40,34 @@ def get_component_type(comp_id: str):
         return "GPIO"
     if comp_id.startswith("GND"):
         return "GND"
-    return comp_id[0]  # V1 → V, R1 → R
+    return comp_id[0]   # V1 -> V, R1 -> R
 
 
 def base_component(terminal: str):
     return terminal.split(".")[0]
 
 
-# ===== OPTION 2: RGB CHECKERBOARD REMOVAL =====
-def remove_checkerboard_rgb(img):
+# ===== FINAL BRUTE-FORCE BACKGROUND REMOVAL =====
+def force_remove_background(img):
     """
-    Removes fake transparency / checkerboard baked into RGB.
-    Works even if alpha channel is fully opaque.
+    Aggressive background removal for demo purposes.
+    Removes white / grey / checkerboard regardless of alpha.
     """
     if img is None:
         return img
 
-    # Ensure RGBA
-    if img.shape[2] == 3:
-        bgr = img
-        alpha = np.ones(bgr.shape[:2], dtype=np.uint8) * 255
-    else:
-        b, g, r, alpha = cv2.split(img)
+    # Convert to BGR
+    if img.shape[2] == 4:
+        b, g, r, _ = cv2.split(img)
         bgr = cv2.merge([b, g, r])
+    else:
+        bgr = img
 
-    # Remove light grey / white background
-    mask = ~(
-        (bgr[:, :, 0] > 200) &
-        (bgr[:, :, 1] > 200) &
-        (bgr[:, :, 2] > 200)
+    # Kill light pixels (checkerboard / white background)
+    mask = (
+        (bgr[:, :, 0] < 220) |
+        (bgr[:, :, 1] < 200) |
+        (bgr[:, :, 2] < 200)
     )
 
     alpha = mask.astype(np.uint8) * 255
@@ -98,7 +96,7 @@ def overlay_image(frame, img, x, y):
         )
 
 
-# ============ BRANCH-AWARE LAYOUT ============
+# ============ SIMPLE LAYOUT ============
 def auto_layout_position(comp, visible_components, connections):
     base_x = 250
     gap_x = 170
@@ -109,12 +107,10 @@ def auto_layout_position(comp, visible_components, connections):
     x = base_x + idx * gap_x
     y = base_y
 
-    # Parallel branches from V1
+    # Simple parallel hint (from V1)
     branches = [b for a, b in connections if a == "V1"]
-
     if comp in branches:
-        branch_idx = branches.index(comp)
-        y = base_y - gap_y if branch_idx == 0 else base_y + gap_y
+        y = base_y - gap_y if branches.index(comp) == 0 else base_y + gap_y
 
     return x, y
 
@@ -189,7 +185,7 @@ def main():
 
         frame = cv2.flip(frame, 1)
 
-        # Status text
+        # Status
         cv2.putText(frame, status, (10, 30),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
 
@@ -209,8 +205,10 @@ def main():
         for comp in visible_components:
             x, y = auto_layout_position(comp, visible_components, connections)
             overlay_image(frame, component_images.get(comp), x, y)
+
+            # BLACK component labels
             cv2.putText(frame, comp, (x - 20, y + 75),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 0), 2)
 
         cv2.imshow("eYantra AR Circuit Lab", frame)
 
@@ -228,7 +226,7 @@ def main():
                         img_path = COMPONENT_IMAGES.get(get_component_type(comp))
                         if img_path and img_path.exists():
                             img = cv2.imread(str(img_path), cv2.IMREAD_UNCHANGED)
-                            img = remove_checkerboard_rgb(img)
+                            img = force_remove_background(img)
                             img = cv2.resize(img, (120, 120))
                         component_images[comp] = img
                         visible_components.append(comp)
