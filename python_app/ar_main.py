@@ -2,6 +2,7 @@ import sys
 import os
 import json
 from pathlib import Path
+import numpy as np
 
 # ================= PATH FIX =================
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -40,39 +41,56 @@ def get_component_type(comp_id: str):
         return "GPIO"
     if comp_id.startswith("GND"):
         return "GND"
-    return comp_id[0]  # V1 → V, R1 → R, etc.
+    return comp_id[0]  # V1 → V, R1 → R
 
 
 def base_component(terminal: str):
     return terminal.split(".")[0]
 
 
-def clean_transparency(img):
+# ===== OPTION 2: RGB CHECKERBOARD REMOVAL =====
+def remove_checkerboard_rgb(img):
     """
-    Force-clean transparency using alpha channel.
-    Any pixel with alpha < 250 becomes fully transparent.
+    Removes fake transparency / checkerboard baked into RGB.
+    Works even if alpha channel is fully opaque.
     """
-    if img is None or img.shape[2] != 4:
+    if img is None:
         return img
 
-    b, g, r, a = cv2.split(img)
+    # Ensure RGBA
+    if img.shape[2] == 3:
+        bgr = img
+        alpha = np.ones(bgr.shape[:2], dtype=np.uint8) * 255
+    else:
+        b, g, r, alpha = cv2.split(img)
+        bgr = cv2.merge([b, g, r])
 
-    # Hard threshold alpha
-    a[a < 250] = 0
-    a[a >= 250] = 255
+    # Remove light grey / white background
+    mask = ~(
+        (bgr[:, :, 0] > 200) &
+        (bgr[:, :, 1] > 200) &
+        (bgr[:, :, 2] > 200)
+    )
 
-    return cv2.merge([b, g, r, a])
+    alpha = mask.astype(np.uint8) * 255
+    b, g, r = cv2.split(bgr)
+
+    return cv2.merge([b, g, r, alpha])
 
 
 def overlay_image(frame, img, x, y):
     if img is None:
         return
+
     h, w = img.shape[:2]
     x1, y1 = x - w // 2, y - h // 2
     x2, y2 = x1 + w, y1 + h
+
     if x1 < 0 or y1 < 0 or x2 > frame.shape[1] or y2 > frame.shape[0]:
         return
+
     alpha = img[:, :, 3] / 255.0
+
     for c in range(3):
         frame[y1:y2, x1:x2, c] = (
             alpha * img[:, :, c] +
@@ -91,7 +109,7 @@ def auto_layout_position(comp, visible_components, connections):
     x = base_x + idx * gap_x
     y = base_y
 
-    # Detect parallel branches from V1
+    # Parallel branches from V1
     branches = [b for a, b in connections if a == "V1"]
 
     if comp in branches:
@@ -104,20 +122,15 @@ def auto_layout_position(comp, visible_components, connections):
 # ============ EXPERIMENT LOADER ============
 def load_experiment_json(exp_id: int):
     file_map = {
-    0: "exp1_ohms_law_measurement.json",
-    1: "exp2_voltage_divider_load.json",
-    2: "exp3_rc_charging_led.json",
-
-    3: "exp4_gpio_led_control.json",
-    4: "exp5_gpio_logic_threshold.json",
-    5: "exp6_rc.json",
-
-    6: "exp7_transistor.json",
-    7: "exp8_threshold.json",
-    
-}
-
-    
+        0: "exp1_ohms_law_measurement.json",
+        1: "exp2_voltage_divider_load.json",
+        2: "exp3_rc_charging_led.json",
+        3: "exp4_gpio_led_control.json",
+        4: "exp5_gpio_logic_threshold.json",
+        5: "exp6_rc.json",
+        6: "exp7_transistor.json",
+        7: "exp8_threshold.json",
+    }
 
     if exp_id not in file_map:
         return [], "No experiment mapped"
@@ -128,7 +141,7 @@ def load_experiment_json(exp_id: int):
         return [], f"Missing file: {path.name}"
 
     try:
-        circuit, steps = load_series_circuit_from_json(path)
+        _, steps = load_series_circuit_from_json(path)
     except json.JSONDecodeError:
         return [], "Invalid JSON file"
 
@@ -176,7 +189,7 @@ def main():
 
         frame = cv2.flip(frame, 1)
 
-        # Status
+        # Status text
         cv2.putText(frame, status, (10, 30),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
 
@@ -215,7 +228,7 @@ def main():
                         img_path = COMPONENT_IMAGES.get(get_component_type(comp))
                         if img_path and img_path.exists():
                             img = cv2.imread(str(img_path), cv2.IMREAD_UNCHANGED)
-                            img = clean_transparency(img)
+                            img = remove_checkerboard_rgb(img)
                             img = cv2.resize(img, (120, 120))
                         component_images[comp] = img
                         visible_components.append(comp)
