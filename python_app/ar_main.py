@@ -28,6 +28,8 @@ COMPONENT_IMAGES = {
     "Q": ASSETS_DIR / "transistor.png",
     "GND": ASSETS_DIR / "ground.png",
     "GPIO": ASSETS_DIR / "gpio_block.png",
+    "S": ASSETS_DIR / "switch.png",
+
 }
 
 
@@ -232,10 +234,13 @@ def main():
                         visible_components.append(comp)
 
                 elif step["type"] == "connect":
-                    a = base_component(step["from"])
-                    b = base_component(step["to"])
-                    if a in visible_components and b in visible_components:
-                        connections.append((a, b))
+                  a = base_component(step["from"])
+                  b = base_component(step["to"])
+
+     # Store connection intent even if component not visible yet
+                  if (a, b) not in connections and (b, a) not in connections:
+                   connections.append((a, b))
+
 
         elif key == ord("r"):
             current_step = -1
